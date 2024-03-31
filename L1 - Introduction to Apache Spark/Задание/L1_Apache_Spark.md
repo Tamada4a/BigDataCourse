@@ -591,12 +591,12 @@ https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.StorageLev
 # Следующие шаги
 
 #### 1. Проведите анализ данных велопарковок на языке Python в интерактивном режиме из Jupyter книг:
-  - `L1_interactive_bike_analysis_python_with_rdd.ipynb`, 
-  - `L1_interactive_bike_analysis_python_with_dataframes.ipynb`.
+  - [L1_interactive_bike_analysis_python_with_rdd.ipynb](L1_interactive_bike_analysis_python_with_rdd.ipynb), 
+  - [L1_interactive_bike_analysis_python_with_dataframes.ipynb](L1_interactive_bike_analysis_python_with_dataframes.ipynb).
 
 #### 2. Проведите анализ данных велопарковок на языке Scala или Python в неинтерактивном режиме (`--deploy-mode cluster`). Инструкции по созданию и запуску приложений:
-  - Scala `L1_noninteractive_bike_analysis_scala.md`
-  - Python `L1_noninteractive_bike_analysis_scala.py`
+  - Scala [L1_noninteractive_bike_analysis_scala.md](L1_noninteractive_bike_analysis_scala.md)
+  - Python [L1_noninteractive_bike_analysis_python.py](L1_noninteractive_bike_analysis_python.py)
  
 #### 3. Решите задачи [L1_Apache_Spark_Tasks.md](L1_Apache_Spark_Tasks.md)
     
