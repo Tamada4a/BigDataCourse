@@ -33,63 +33,62 @@ import org.apache.flink.util.Collector;
 /**
  * Java reference implementation for the "Hourly Tips" exercise of the Flink training
  * (http://training.ververica.com).
- *
+ * <p>
  * The task of the exercise is to first calculate the total tips collected by each driver, hour by hour, and
  * then from that stream, find the highest tip total in each hour.
- *
+ * <p>
  * Parameters:
  * -input path-to-input-file
- *
  */
 public class HourlyTipsSolution extends ExerciseBase {
 
-	public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
 
-		// read parameters
-		ParameterTool params = ParameterTool.fromArgs(args);
-		final String input = params.get("input", ExerciseBase.pathToFareData);
+        // read parameters
+        ParameterTool params = ParameterTool.fromArgs(args);
+        final String input = params.get("input", ExerciseBase.pathToFareData);
 
-		final int maxEventDelay = 60;       // events are out of order by max 60 seconds
-		final int servingSpeedFactor = 600; // events of 10 minutes are served in 1 second
+        final int maxEventDelay = 60;       // events are out of order by max 60 seconds
+        final int servingSpeedFactor = 600; // events of 10 minutes are served in 1 second
 
-		// set up streaming execution environment
-		Configuration conf = new Configuration();
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
-		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
-		env.setParallelism(ExerciseBase.parallelism);
+        // set up streaming execution environment
+        Configuration conf = new Configuration();
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
+        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+        env.setParallelism(ExerciseBase.parallelism);
 
-		// start the data generator
-		DataStream<TaxiFare> fares = env.addSource(fareSourceOrTest(new TaxiFareSource(input, maxEventDelay, servingSpeedFactor))).name("testname");
+        // start the data generator
+        DataStream<TaxiFare> fares = env.addSource(fareSourceOrTest(new TaxiFareSource(input, maxEventDelay, servingSpeedFactor))).name("testname");
 
-		// compute tips per hour for each driver
-		fares
-				.keyBy((TaxiFare fare) -> fare.driverId)
-				.timeWindow(Time.hours(1))
-				.process(new AddTips())
-				.timeWindowAll(Time.hours(1))
-				.maxBy(2)
-				.print();
+        // compute tips per hour for each driver
+        fares
+                .keyBy((TaxiFare fare) -> fare.driverId)
+                .timeWindow(Time.hours(1))
+                .process(new AddTips())
+                .timeWindowAll(Time.hours(1))
+                .maxBy(2)
+                .print();
 
 //		printOrTest(hourlyMax);
 
-		System.out.println(env.getExecutionPlan());
+        System.out.println(env.getExecutionPlan());
 
-		// execute the transformation pipeline
-		env.execute("Hourly Tips (java)");
-	}
+        // execute the transformation pipeline
+        env.execute("Hourly Tips (java)");
+    }
 
-	/*
-	 * Wraps the pre-aggregated result into a tuple along with the window's timestamp and key.
-	 */
-	public static class AddTips extends ProcessWindowFunction<
-			TaxiFare, Tuple3<Long, Long, Float>, Long, TimeWindow> {
-		@Override
-		public void process(Long key, Context context, Iterable<TaxiFare> fares, Collector<Tuple3<Long, Long, Float>> out) throws Exception {
-			Float sumOfTips = 0F;
-			for (TaxiFare f : fares) {
-				sumOfTips += f.tip;
-			}
-			out.collect(new Tuple3<>(context.window().getEnd(), key, sumOfTips));
-		}
-	}
+    /*
+     * Wraps the pre-aggregated result into a tuple along with the window's timestamp and key.
+     */
+    public static class AddTips extends ProcessWindowFunction<
+            TaxiFare, Tuple3<Long, Long, Float>, Long, TimeWindow> {
+        @Override
+        public void process(Long key, Context context, Iterable<TaxiFare> fares, Collector<Tuple3<Long, Long, Float>> out) throws Exception {
+            Float sumOfTips = 0F;
+            for (TaxiFare f : fares) {
+                sumOfTips += f.tip;
+            }
+            out.collect(new Tuple3<>(context.window().getEnd(), key, sumOfTips));
+        }
+    }
 }

@@ -33,77 +33,76 @@ import org.apache.flink.util.Collector;
 /**
  * Solution to the "Long Ride Alerts" exercise of the Flink training
  * (http://training.ververica.com).
- *
+ * <p>
  * The goal for this exercise is to emit START events for taxi rides that have not been matched
  * by an END event during the first 2 hours of the ride.
- *
+ * <p>
  * Parameters:
  * -input path-to-input-file
- *
  */
 
 public class LongRidesSolution extends ExerciseBase {
-	public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
 
-		ParameterTool params = ParameterTool.fromArgs(args);
-		final String input = params.get("input", ExerciseBase.pathToRideData);
+        ParameterTool params = ParameterTool.fromArgs(args);
+        final String input = params.get("input", ExerciseBase.pathToRideData);
 
-		final int maxEventDelay = 60;       // events are out of order by max 60 seconds
-		final int servingSpeedFactor = 600; // events of 10 minutes are served in 1 second
+        final int maxEventDelay = 60;       // events are out of order by max 60 seconds
+        final int servingSpeedFactor = 600; // events of 10 minutes are served in 1 second
 
-		// set up streaming execution environment
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
-		env.setParallelism(ExerciseBase.parallelism);
+        // set up streaming execution environment
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+        env.setParallelism(ExerciseBase.parallelism);
 
-		// start the data generator
-		DataStream<TaxiRide> rides = env.addSource(rideSourceOrTest(new TaxiRideSource(input, maxEventDelay, servingSpeedFactor)));
+        // start the data generator
+        DataStream<TaxiRide> rides = env.addSource(rideSourceOrTest(new TaxiRideSource(input, maxEventDelay, servingSpeedFactor)));
 
-		DataStream<TaxiRide> longRides = rides
-				.keyBy(r -> r.rideId)
-				.process(new MatchFunction());
+        DataStream<TaxiRide> longRides = rides
+                .keyBy(r -> r.rideId)
+                .process(new MatchFunction());
 
-		printOrTest(longRides);
+        printOrTest(longRides);
 
-		env.execute("Long Taxi Rides");
-	}
+        env.execute("Long Taxi Rides");
+    }
 
-	private static class MatchFunction extends KeyedProcessFunction<Long, TaxiRide, TaxiRide> {
-		// keyed, managed state
-		// holds an END event if the ride has ended, otherwise a START event
-		private ValueState<TaxiRide> rideState;
+    private static class MatchFunction extends KeyedProcessFunction<Long, TaxiRide, TaxiRide> {
+        // keyed, managed state
+        // holds an END event if the ride has ended, otherwise a START event
+        private ValueState<TaxiRide> rideState;
 
-		@Override
-		public void open(Configuration config) {
-			ValueStateDescriptor<TaxiRide> startDescriptor =
-					new ValueStateDescriptor<>("saved ride", TaxiRide.class);
-			rideState = getRuntimeContext().getState(startDescriptor);
-		}
+        @Override
+        public void open(Configuration config) {
+            ValueStateDescriptor<TaxiRide> startDescriptor =
+                    new ValueStateDescriptor<>("saved ride", TaxiRide.class);
+            rideState = getRuntimeContext().getState(startDescriptor);
+        }
 
-		@Override
-		public void processElement(TaxiRide ride, Context context, Collector<TaxiRide> out) throws Exception {
-			TimerService timerService = context.timerService();
+        @Override
+        public void processElement(TaxiRide ride, Context context, Collector<TaxiRide> out) throws Exception {
+            TimerService timerService = context.timerService();
 
-			if (ride.isStart) {
-				// the matching END might have arrived first; don't overwrite it
-				if (rideState.value() == null) {
-					rideState.update(ride);
-				}
-			} else {
-				rideState.update(ride);
-			}
+            if (ride.isStart) {
+                // the matching END might have arrived first; don't overwrite it
+                if (rideState.value() == null) {
+                    rideState.update(ride);
+                }
+            } else {
+                rideState.update(ride);
+            }
 
-			timerService.registerEventTimeTimer(ride.getEventTime() + 120 * 60 * 1000);
-		}
+            timerService.registerEventTimeTimer(ride.getEventTime() + 120 * 60 * 1000);
+        }
 
-		@Override
-		public void onTimer(long timestamp, OnTimerContext context, Collector<TaxiRide> out) throws Exception {
-			TaxiRide savedRide = rideState.value();
-			if (savedRide != null && savedRide.isStart) {
-				out.collect(savedRide);
-			}
-			rideState.clear();
-		}
-	}
+        @Override
+        public void onTimer(long timestamp, OnTimerContext context, Collector<TaxiRide> out) throws Exception {
+            TaxiRide savedRide = rideState.value();
+            if (savedRide != null && savedRide.isStart) {
+                out.collect(savedRide);
+            }
+            rideState.clear();
+        }
+    }
 
 }

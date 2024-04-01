@@ -36,62 +36,62 @@ import java.util.Random;
 
 public class Sort {
 
-	public static final int OUT_OF_ORDERNESS = 1000;
+    public static final int OUT_OF_ORDERNESS = 1000;
 
-	public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
 
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-		StreamTableEnvironment tableEnv = StreamTableEnvironment.create(env);
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(env);
 
-		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
-		env.setParallelism(1);
+        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+        env.setParallelism(1);
 
-		DataStream<Event> eventStream = env.addSource(new OutOfOrderEventSource())
-				.assignTimestampsAndWatermarks(new TimestampsAndWatermarks(Time.milliseconds(OUT_OF_ORDERNESS)));
+        DataStream<Event> eventStream = env.addSource(new OutOfOrderEventSource())
+                .assignTimestampsAndWatermarks(new TimestampsAndWatermarks(Time.milliseconds(OUT_OF_ORDERNESS)));
 
-		Table events = tableEnv.fromDataStream(eventStream, "eventTime.rowtime");
-		tableEnv.registerTable("events", events);
-		Table sorted = tableEnv.sqlQuery("SELECT eventTime FROM events ORDER BY eventTime ASC");
-		DataStream<Row> sortedEventStream = tableEnv.toAppendStream(sorted, Row.class);
+        Table events = tableEnv.fromDataStream(eventStream, "eventTime.rowtime");
+        tableEnv.registerTable("events", events);
+        Table sorted = tableEnv.sqlQuery("SELECT eventTime FROM events ORDER BY eventTime ASC");
+        DataStream<Row> sortedEventStream = tableEnv.toAppendStream(sorted, Row.class);
 
-		sortedEventStream.print();
+        sortedEventStream.print();
 
-		env.execute();
-	}
+        env.execute();
+    }
 
-	public static class Event {
-		public Long eventTime;
+    public static class Event {
+        public Long eventTime;
 
-		Event() {
-			this.eventTime = Instant.now().toEpochMilli() + (new Random().nextInt(OUT_OF_ORDERNESS));
-		}
-	}
+        Event() {
+            this.eventTime = Instant.now().toEpochMilli() + (new Random().nextInt(OUT_OF_ORDERNESS));
+        }
+    }
 
-	private static class OutOfOrderEventSource implements SourceFunction<Event> {
-		private volatile boolean running = true;
+    private static class OutOfOrderEventSource implements SourceFunction<Event> {
+        private volatile boolean running = true;
 
-		@Override
-		public void run(SourceContext<Event> ctx) throws Exception {
-			while(running) {
-				ctx.collect(new Event());
-				Thread.sleep(1);
-			}
-		}
+        @Override
+        public void run(SourceContext<Event> ctx) throws Exception {
+            while (running) {
+                ctx.collect(new Event());
+                Thread.sleep(1);
+            }
+        }
 
-		@Override
-		public void cancel() {
-			running = false;
-		}
-	}
+        @Override
+        public void cancel() {
+            running = false;
+        }
+    }
 
-	private static class TimestampsAndWatermarks extends BoundedOutOfOrdernessTimestampExtractor<Event> {
-		public TimestampsAndWatermarks(Time t) {
-			super(t);
-		}
+    private static class TimestampsAndWatermarks extends BoundedOutOfOrdernessTimestampExtractor<Event> {
+        public TimestampsAndWatermarks(Time t) {
+            super(t);
+        }
 
-		@Override
-		public long extractTimestamp(Event event) {
-			return event.eventTime;
-		}
-	}
+        @Override
+        public long extractTimestamp(Event event) {
+            return event.eventTime;
+        }
+    }
 }

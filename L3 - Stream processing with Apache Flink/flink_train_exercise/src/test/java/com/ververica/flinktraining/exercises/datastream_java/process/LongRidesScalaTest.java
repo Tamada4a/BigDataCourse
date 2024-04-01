@@ -26,22 +26,22 @@ import java.util.List;
 
 public class LongRidesScalaTest extends LongRidesTest {
 
-	static Testable scalaExercise = () -> LongRidesExercise.main(new String[]{});
-	static Testable scalaCEPExercise = () -> LongRidesCEPExercise.main(new String[]{});
+    static Testable scalaExercise = () -> LongRidesExercise.main(new String[]{});
+    static Testable scalaCEPExercise = () -> LongRidesCEPExercise.main(new String[]{});
 
-	protected List<TaxiRide> results(TestRideSource source) throws Exception {
-		Testable scalaSolution = () -> LongRidesSolution.main(new String[]{});
-		return runApp(source, new TestSink<>(), scalaExercise, scalaSolution);
-	}
+    protected List<TaxiRide> results(TestRideSource source) throws Exception {
+        Testable scalaSolution = () -> LongRidesSolution.main(new String[]{});
+        return runApp(source, new TestSink<>(), scalaExercise, scalaSolution);
+    }
 
-	protected List<TaxiRide> cepResults(TestRideSource source) throws Exception {
-		Testable scalaCEPSolution = () -> LongRidesCEPSolution.main(new String[]{});
-		return runApp(source, new TestSink<>(), scalaCEPExercise, scalaCEPSolution);
-	}
+    protected List<TaxiRide> cepResults(TestRideSource source) throws Exception {
+        Testable scalaCEPSolution = () -> LongRidesCEPSolution.main(new String[]{});
+        return runApp(source, new TestSink<>(), scalaCEPExercise, scalaCEPSolution);
+    }
 
-	protected List<TaxiRide> checkpointedResults(TestRideSource source) throws Exception {
-		Testable scalaCheckpointedSolution = () -> CheckpointedLongRidesSolution.main(new String[]{});
-		return runApp(source, new TestSink<>(), scalaCheckpointedSolution);
-	}
+    protected List<TaxiRide> checkpointedResults(TestRideSource source) throws Exception {
+        Testable scalaCheckpointedSolution = () -> CheckpointedLongRidesSolution.main(new String[]{});
+        return runApp(source, new TestSink<>(), scalaCheckpointedSolution);
+    }
 
 }

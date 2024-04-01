@@ -35,69 +35,69 @@ import java.util.Map;
 /**
  * Java reference implementation for a CEP-based solution to the "Driving Segments" exercise of the Flink training
  * (http://training.ververica.com).
- *
+ * <p>
  * The task of the exercise is to divide the input stream of ConnectedCarEvents into segments,
  * where the car is being continuously driven without stopping.
- *
+ * <p>
  * Parameters:
  * -input path-to-input-file
  */
 public class DrivingSegments {
 
-	public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
 
-		// read parameters
-		ParameterTool params = ParameterTool.fromArgs(args);
-		String input = params.getRequired("input");
+        // read parameters
+        ParameterTool params = ParameterTool.fromArgs(args);
+        String input = params.getRequired("input");
 
-		// set up streaming execution environment
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+        // set up streaming execution environment
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
-		// connect to the data file
-		DataStream<String> carData = env.readTextFile(input);
+        // connect to the data file
+        DataStream<String> carData = env.readTextFile(input);
 
-		// map to events
-		DataStream<ConnectedCarEvent> events = carData
-				.map((String line) -> ConnectedCarEvent.fromString(line))
-				.assignTimestampsAndWatermarks(new ConnectedCarAssigner())
-				.keyBy("carId");
+        // map to events
+        DataStream<ConnectedCarEvent> events = carData
+                .map((String line) -> ConnectedCarEvent.fromString(line))
+                .assignTimestampsAndWatermarks(new ConnectedCarAssigner())
+                .keyBy("carId");
 
-		Pattern<ConnectedCarEvent, ?> driving =
-				Pattern.<ConnectedCarEvent>begin("stoppedBefore")
-						.where(new SimpleCondition<ConnectedCarEvent>() {
-							@Override
-							public boolean filter(ConnectedCarEvent event) throws Exception {
-								return event.speed == 0;
-							}
-						})
-						.next("driving")
-						.where(new SimpleCondition<ConnectedCarEvent>() {
-							@Override
-							public boolean filter(ConnectedCarEvent event) throws Exception {
-								return event.speed != 0;
-							}
-						})
-						.oneOrMore()
-						.next("stoppedAfter")
-						.where(new SimpleCondition<ConnectedCarEvent>() {
-							@Override
-							public boolean filter(ConnectedCarEvent event) throws Exception {
-								return event.speed == 0;
-							}
-						});
+        Pattern<ConnectedCarEvent, ?> driving =
+                Pattern.<ConnectedCarEvent>begin("stoppedBefore")
+                        .where(new SimpleCondition<ConnectedCarEvent>() {
+                            @Override
+                            public boolean filter(ConnectedCarEvent event) throws Exception {
+                                return event.speed == 0;
+                            }
+                        })
+                        .next("driving")
+                        .where(new SimpleCondition<ConnectedCarEvent>() {
+                            @Override
+                            public boolean filter(ConnectedCarEvent event) throws Exception {
+                                return event.speed != 0;
+                            }
+                        })
+                        .oneOrMore()
+                        .next("stoppedAfter")
+                        .where(new SimpleCondition<ConnectedCarEvent>() {
+                            @Override
+                            public boolean filter(ConnectedCarEvent event) throws Exception {
+                                return event.speed == 0;
+                            }
+                        });
 
-		PatternStream<ConnectedCarEvent> patternStream = CEP.pattern(events, driving);
+        PatternStream<ConnectedCarEvent> patternStream = CEP.pattern(events, driving);
 
-		patternStream.select(new SelectSegment()).print();
+        patternStream.select(new SelectSegment()).print();
 
-		env.execute("Driving Segments");
-	}
+        env.execute("Driving Segments");
+    }
 
-	public static class SelectSegment implements PatternSelectFunction<ConnectedCarEvent, StoppedSegment> {
-		public StoppedSegment select(Map<String, List<ConnectedCarEvent>> pattern) {
-			return new StoppedSegment(pattern.get("driving"));
-		}
-	}
+    public static class SelectSegment implements PatternSelectFunction<ConnectedCarEvent, StoppedSegment> {
+        public StoppedSegment select(Map<String, List<ConnectedCarEvent>> pattern) {
+            return new StoppedSegment(pattern.get("driving"));
+        }
+    }
 
 }

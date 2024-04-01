@@ -16,17 +16,18 @@
 
 package com.ververica.flinktraining.examples.datastream_java.basics.utils;
 
+import org.apache.flink.streaming.api.functions.sink.SinkFunction;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 
 public class SinkCollectingLongs implements SinkFunction<Long> {
 
-	public static final List<Long> result =
-			Collections.synchronizedList(new ArrayList<>());
+    public static final List<Long> result =
+            Collections.synchronizedList(new ArrayList<>());
 
-	public void invoke(Long value, Context context) throws Exception {
-		result.add(value);
-	}
+    public void invoke(Long value, Context context) throws Exception {
+        result.add(value);
+    }
 }

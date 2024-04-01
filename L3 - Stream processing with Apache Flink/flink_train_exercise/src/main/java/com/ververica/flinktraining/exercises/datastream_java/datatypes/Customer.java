@@ -18,39 +18,39 @@ package com.ververica.flinktraining.exercises.datastream_java.datatypes;
 
 public class Customer implements Comparable<Customer> {
 
-	public Customer() {}
+    public Customer() {
+    }
 
-	public Customer(Long timestamp, Long customerId, String customerInfo) {
+    public Customer(Long timestamp, Long customerId, String customerInfo) {
 
-		this.timestamp = timestamp;
-		this.customerId = customerId;
-		this.customerInfo = customerInfo;
-	}
+        this.timestamp = timestamp;
+        this.customerId = customerId;
+        this.customerInfo = customerInfo;
+    }
 
-	public Long timestamp;
-	public Long customerId;
-	public String customerInfo;
+    public Long timestamp;
+    public Long customerId;
+    public String customerInfo;
 
-	public String toString() {
-		StringBuilder sb = new StringBuilder();
-		sb.append("Customer(").append(timestamp).append(") ");
-		sb.append(customerInfo);
-		return sb.toString();
-	}
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Customer(").append(timestamp).append(") ");
+        sb.append(customerInfo);
+        return sb.toString();
+    }
 
-	public int compareTo(Customer other) {
-		return Long.compare(this.timestamp, other.timestamp);
-	}
+    public int compareTo(Customer other) {
+        return Long.compare(this.timestamp, other.timestamp);
+    }
 
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) {
-			return true;
-		}
-		else if (o != null && getClass() == o.getClass()) {
-			Customer that = (Customer) o;
-			return ((this.customerId.equals(that.customerId)) && (this.timestamp.equals(that.timestamp)));
-		}
-		return false;
-	}
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        } else if (o != null && getClass() == o.getClass()) {
+            Customer that = (Customer) o;
+            return ((this.customerId.equals(that.customerId)) && (this.timestamp.equals(that.timestamp)));
+        }
+        return false;
+    }
 }

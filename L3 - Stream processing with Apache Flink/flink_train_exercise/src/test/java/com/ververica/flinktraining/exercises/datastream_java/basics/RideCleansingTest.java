@@ -16,9 +16,9 @@
 
 package com.ververica.flinktraining.exercises.datastream_java.basics;
 
+import com.google.common.collect.Lists;
 import com.ververica.flinktraining.exercises.datastream_java.datatypes.TaxiRide;
 import com.ververica.flinktraining.exercises.datastream_java.testing.TaxiRideTestBase;
-import com.google.common.collect.Lists;
 import org.joda.time.DateTime;
 import org.junit.Test;
 
@@ -28,36 +28,36 @@ import static org.junit.Assert.assertEquals;
 
 public class RideCleansingTest extends TaxiRideTestBase<TaxiRide> {
 
-	static Testable javaExercise = () -> RideCleansingExercise.main(new String[]{});
+    static Testable javaExercise = () -> RideCleansingExercise.main(new String[]{});
 
-	@Test
-	public void testInNYC() throws Exception {
-		TaxiRide atPennStation = testRide(-73.9947F, 40.750626F, -73.9947F, 40.750626F);
+    @Test
+    public void testInNYC() throws Exception {
+        TaxiRide atPennStation = testRide(-73.9947F, 40.750626F, -73.9947F, 40.750626F);
 
-		TestRideSource source = new TestRideSource(atPennStation);
+        TestRideSource source = new TestRideSource(atPennStation);
 
-		assertEquals(Lists.newArrayList(atPennStation), results(source));
-	}
+        assertEquals(Lists.newArrayList(atPennStation), results(source));
+    }
 
-	@Test
-	public void testNotInNYC() throws Exception {
-		TaxiRide toThePole = testRide(-73.9947F, 40.750626F, 0, 90);
-		TaxiRide fromThePole = testRide(0, 90, -73.9947F, 40.750626F);
-		TaxiRide atNorthPole = testRide(0, 90, 0, 90);
+    @Test
+    public void testNotInNYC() throws Exception {
+        TaxiRide toThePole = testRide(-73.9947F, 40.750626F, 0, 90);
+        TaxiRide fromThePole = testRide(0, 90, -73.9947F, 40.750626F);
+        TaxiRide atNorthPole = testRide(0, 90, 0, 90);
 
-		TestRideSource source = new TestRideSource(toThePole, fromThePole, atNorthPole);
+        TestRideSource source = new TestRideSource(toThePole, fromThePole, atNorthPole);
 
-		assertEquals(Lists.newArrayList(), results(source));
-	}
+        assertEquals(Lists.newArrayList(), results(source));
+    }
 
-	private TaxiRide testRide(float startLon, float startLat, float endLon, float endLat) {
-		return new TaxiRide(1L, true, new DateTime(0), new DateTime(0),
-				startLon, startLat, endLon, endLat, (short)1, 0, 0);
-	}
+    private TaxiRide testRide(float startLon, float startLat, float endLon, float endLat) {
+        return new TaxiRide(1L, true, new DateTime(0), new DateTime(0),
+                startLon, startLat, endLon, endLat, (short) 1, 0, 0);
+    }
 
-	protected List<?> results(TestRideSource source) throws Exception {
-		Testable javaSolution = () -> com.ververica.flinktraining.solutions.datastream_java.basics.RideCleansingSolution.main(new String[]{});
-		return runApp(source, new TestSink<>(), javaExercise, javaSolution);
-	}
+    protected List<?> results(TestRideSource source) throws Exception {
+        Testable javaSolution = () -> com.ververica.flinktraining.solutions.datastream_java.basics.RideCleansingSolution.main(new String[]{});
+        return runApp(source, new TestSink<>(), javaExercise, javaSolution);
+    }
 
 }

@@ -63,133 +63,133 @@ import java.util.Map;
  */
 
 public class EventTimeJoinExercise {
-	public static void main(String[] args) throws Exception {
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+    public static void main(String[] args) throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
-		// Simulated trade stream
-		DataStream<Trade> tradeStream = FinSources.tradeSource(env);
+        // Simulated trade stream
+        DataStream<Trade> tradeStream = FinSources.tradeSource(env);
 
-		// Simulated customer stream
-		DataStream<Customer> customerStream = FinSources.customerSource(env);
+        // Simulated customer stream
+        DataStream<Customer> customerStream = FinSources.customerSource(env);
 
-		// Stream of enriched trades
-		DataStream<EnrichedTrade> joinedStream = tradeStream
-				.keyBy("customerId")
-				.connect(customerStream.keyBy("customerId"))
-				.process(new EventTimeJoinFunction());
+        // Stream of enriched trades
+        DataStream<EnrichedTrade> joinedStream = tradeStream
+                .keyBy("customerId")
+                .connect(customerStream.keyBy("customerId"))
+                .process(new EventTimeJoinFunction());
 
-		joinedStream.print();
+        joinedStream.print();
 
-		env.execute("event-time join");
-	}
+        env.execute("event-time join");
+    }
 
-	public static class EventTimeJoinFunction extends KeyedCoProcessFunction<Long, Trade, Customer, EnrichedTrade> {
-		// Store pending Trades for a customerId, keyed by timestamp
-		private MapState<Long, Trade> tradeMap = null;
+    public static class EventTimeJoinFunction extends KeyedCoProcessFunction<Long, Trade, Customer, EnrichedTrade> {
+        // Store pending Trades for a customerId, keyed by timestamp
+        private MapState<Long, Trade> tradeMap = null;
 
-		// Store Customer updates for a customerId, keyed by timestamp
-		private MapState<Long, Customer> customerMap = null;
+        // Store Customer updates for a customerId, keyed by timestamp
+        private MapState<Long, Customer> customerMap = null;
 
-		@Override
-		public void open(Configuration config) {
-			MapStateDescriptor tDescriptor = new MapStateDescriptor<Long, Trade>(
-					"tradeBuffer",
-					TypeInformation.of(Long.class),
-					TypeInformation.of(Trade.class)
-			);
-			tradeMap = getRuntimeContext().getMapState(tDescriptor);
+        @Override
+        public void open(Configuration config) {
+            MapStateDescriptor tDescriptor = new MapStateDescriptor<Long, Trade>(
+                    "tradeBuffer",
+                    TypeInformation.of(Long.class),
+                    TypeInformation.of(Trade.class)
+            );
+            tradeMap = getRuntimeContext().getMapState(tDescriptor);
 
-			MapStateDescriptor cDescriptor = new MapStateDescriptor<Long, Customer>(
-					"customerBuffer",
-					TypeInformation.of(Long.class),
-					TypeInformation.of(Customer.class)
-			);
-			customerMap = getRuntimeContext().getMapState(cDescriptor);
-		}
+            MapStateDescriptor cDescriptor = new MapStateDescriptor<Long, Customer>(
+                    "customerBuffer",
+                    TypeInformation.of(Long.class),
+                    TypeInformation.of(Customer.class)
+            );
+            customerMap = getRuntimeContext().getMapState(cDescriptor);
+        }
 
-		@Override
-		public void processElement1(Trade trade,
-									Context context,
-									Collector<EnrichedTrade> out)
-				throws Exception {
+        @Override
+        public void processElement1(Trade trade,
+                                    Context context,
+                                    Collector<EnrichedTrade> out)
+                throws Exception {
 
-			System.out.println("Received " + trade.toString());
-			TimerService timerService = context.timerService();
+            System.out.println("Received " + trade.toString());
+            TimerService timerService = context.timerService();
 
-			if (context.timestamp() > timerService.currentWatermark()) {
-				// Do the join later, by which time any relevant Customer records should have have arrived.
-				tradeMap.put(trade.timestamp, trade);
-				timerService.registerEventTimeTimer(trade.timestamp);
-			} else {
-				// Late Trades land here.
-			}
-		}
+            if (context.timestamp() > timerService.currentWatermark()) {
+                // Do the join later, by which time any relevant Customer records should have have arrived.
+                tradeMap.put(trade.timestamp, trade);
+                timerService.registerEventTimeTimer(trade.timestamp);
+            } else {
+                // Late Trades land here.
+            }
+        }
 
-		@Override
-		public void processElement2(Customer customer,
-									Context context,
-									Collector<EnrichedTrade> collector)
-				throws Exception {
+        @Override
+        public void processElement2(Customer customer,
+                                    Context context,
+                                    Collector<EnrichedTrade> collector)
+                throws Exception {
 
-			System.out.println("Received " + customer.toString());
-			customerMap.put(customer.timestamp, customer);
+            System.out.println("Received " + customer.toString());
+            customerMap.put(customer.timestamp, customer);
 
-			/* Calling this solely for its side effect of freeing older Customer records.
-			 * Otherwise Customers with frequent updates and no Trades would leak state.
-			 */
-			getCustomerRecordToJoin(context.timerService().currentWatermark());
-		}
+            /* Calling this solely for its side effect of freeing older Customer records.
+             * Otherwise Customers with frequent updates and no Trades would leak state.
+             */
+            getCustomerRecordToJoin(context.timerService().currentWatermark());
+        }
 
-		@Override
-		public void onTimer(long t,
-							OnTimerContext context,
-							Collector<EnrichedTrade> out)
-				throws Exception {
+        @Override
+        public void onTimer(long t,
+                            OnTimerContext context,
+                            Collector<EnrichedTrade> out)
+                throws Exception {
 
-			Trade trade = tradeMap.get(t);
-			if (trade != null) {
-				tradeMap.remove(t);
-				EnrichedTrade joined = new EnrichedTrade(trade, getCustomerRecordToJoin(trade.timestamp));
-				out.collect(joined);
-			}
-		}
+            Trade trade = tradeMap.get(t);
+            if (trade != null) {
+                tradeMap.remove(t);
+                EnrichedTrade joined = new EnrichedTrade(trade, getCustomerRecordToJoin(trade.timestamp));
+                out.collect(joined);
+            }
+        }
 
-		/*
-		 * Returns the newest Customer that isn't newer than the Trade we are enriching.
-		 * As a side effect, removes earlier Customer records that are no longer needed.
-		 */
-		private Customer getCustomerRecordToJoin(Long timestamp) throws Exception {
-			Iterator<Map.Entry<Long, Customer>> customerEntries = customerMap.iterator();
-			Customer theOneWeAreLookingFor = null;
-			List<Long> toRemove = new ArrayList<>();
+        /*
+         * Returns the newest Customer that isn't newer than the Trade we are enriching.
+         * As a side effect, removes earlier Customer records that are no longer needed.
+         */
+        private Customer getCustomerRecordToJoin(Long timestamp) throws Exception {
+            Iterator<Map.Entry<Long, Customer>> customerEntries = customerMap.iterator();
+            Customer theOneWeAreLookingFor = null;
+            List<Long> toRemove = new ArrayList<>();
 
-			while(customerEntries.hasNext()) {
-				Customer c = customerEntries.next().getValue();
-				// c should not be newer than the Trade being enriched
-				if (c.timestamp <= timestamp) {
-					/*
-					* By the time Trades are being joined, they are being processed in order (by Timestamp).
-					* This means that any Customer record too old to join with this Trade is too old
-					* to be worth keeping any longer.
-					*/
-					if (theOneWeAreLookingFor != null) {
-						if (c.timestamp > theOneWeAreLookingFor.timestamp) {
-							toRemove.add(theOneWeAreLookingFor.timestamp);
-							theOneWeAreLookingFor = c;
-						}
-					} else {
-						theOneWeAreLookingFor = c;
-					}
-				}
-			}
+            while (customerEntries.hasNext()) {
+                Customer c = customerEntries.next().getValue();
+                // c should not be newer than the Trade being enriched
+                if (c.timestamp <= timestamp) {
+                    /*
+                     * By the time Trades are being joined, they are being processed in order (by Timestamp).
+                     * This means that any Customer record too old to join with this Trade is too old
+                     * to be worth keeping any longer.
+                     */
+                    if (theOneWeAreLookingFor != null) {
+                        if (c.timestamp > theOneWeAreLookingFor.timestamp) {
+                            toRemove.add(theOneWeAreLookingFor.timestamp);
+                            theOneWeAreLookingFor = c;
+                        }
+                    } else {
+                        theOneWeAreLookingFor = c;
+                    }
+                }
+            }
 
-			for (Long t : toRemove) {
-				System.out.println("Removing customer @ " + t);
-				customerMap.remove(t);
-			}
+            for (Long t : toRemove) {
+                System.out.println("Removing customer @ " + t);
+                customerMap.remove(t);
+            }
 
-			return theOneWeAreLookingFor;
-		}
-	}
+            return theOneWeAreLookingFor;
+        }
+    }
 }

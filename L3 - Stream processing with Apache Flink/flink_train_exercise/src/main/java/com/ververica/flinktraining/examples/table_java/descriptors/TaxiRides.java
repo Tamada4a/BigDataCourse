@@ -22,51 +22,48 @@ import org.apache.flink.util.Preconditions;
 
 import java.util.Map;
 
-import static com.ververica.flinktraining.examples.table_java.descriptors.TaxiRidesValidator.CONNECTOR_MAX_EVENT_DELAY_SECS;
-import static com.ververica.flinktraining.examples.table_java.descriptors.TaxiRidesValidator.CONNECTOR_PATH;
-import static com.ververica.flinktraining.examples.table_java.descriptors.TaxiRidesValidator.CONNECTOR_SERVING_SPEED_FACTOR;
-import static com.ververica.flinktraining.examples.table_java.descriptors.TaxiRidesValidator.CONNECTOR_TYPE_VALUE_TAXI_RIDES;
+import static com.ververica.flinktraining.examples.table_java.descriptors.TaxiRidesValidator.*;
 
 /**
  * The taxi rides data as provided by the New York City Taxi & Limousine Commission.
  */
 public class TaxiRides extends ConnectorDescriptor {
 
-	public TaxiRides() {
-		super(CONNECTOR_TYPE_VALUE_TAXI_RIDES, 1, false);
-	}
+    public TaxiRides() {
+        super(CONNECTOR_TYPE_VALUE_TAXI_RIDES, 1, false);
+    }
 
-	private String path;
-	private Integer maxEventDelaySecs;
-	private Integer servingSpeedFactor;
+    private String path;
+    private Integer maxEventDelaySecs;
+    private Integer servingSpeedFactor;
 
-	public TaxiRides path(String path) {
-		this.path = Preconditions.checkNotNull(path);
-		return this;
-	}
+    public TaxiRides path(String path) {
+        this.path = Preconditions.checkNotNull(path);
+        return this;
+    }
 
-	public TaxiRides maxEventDelaySecs(int maxEventDelaySecs) {
-		this.maxEventDelaySecs = maxEventDelaySecs;
-		return this;
-	}
+    public TaxiRides maxEventDelaySecs(int maxEventDelaySecs) {
+        this.maxEventDelaySecs = maxEventDelaySecs;
+        return this;
+    }
 
-	public TaxiRides servingSpeedFactor(int servingSpeedFactor) {
-		this.servingSpeedFactor = servingSpeedFactor;
-		return this;
-	}
+    public TaxiRides servingSpeedFactor(int servingSpeedFactor) {
+        this.servingSpeedFactor = servingSpeedFactor;
+        return this;
+    }
 
-	@Override
-	protected Map<String, String> toConnectorProperties() {
-		DescriptorProperties properties = new DescriptorProperties();
-		if (this.path != null) {
-			properties.putString(CONNECTOR_PATH, this.path);
-		}
-		if (this.maxEventDelaySecs != null) {
-			properties.putInt(CONNECTOR_MAX_EVENT_DELAY_SECS, this.maxEventDelaySecs);
-		}
-		if (this.servingSpeedFactor != null) {
-			properties.putInt(CONNECTOR_SERVING_SPEED_FACTOR, this.servingSpeedFactor);
-		}
-		return properties.asMap();
-	}
+    @Override
+    protected Map<String, String> toConnectorProperties() {
+        DescriptorProperties properties = new DescriptorProperties();
+        if (this.path != null) {
+            properties.putString(CONNECTOR_PATH, this.path);
+        }
+        if (this.maxEventDelaySecs != null) {
+            properties.putInt(CONNECTOR_MAX_EVENT_DELAY_SECS, this.maxEventDelaySecs);
+        }
+        if (this.servingSpeedFactor != null) {
+            properties.putInt(CONNECTOR_SERVING_SPEED_FACTOR, this.servingSpeedFactor);
+        }
+        return properties.asMap();
+    }
 }

@@ -16,12 +16,11 @@
 
 package com.ververica.flinktraining.examples.datastream_java.basics;
 
+import com.ververica.flinktraining.examples.datastream_java.basics.utils.ParallelCollectionSource;
+import com.ververica.flinktraining.examples.datastream_java.basics.utils.SinkCollectingLongs;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.functions.source.ParallelSourceFunction;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
-
-import com.ververica.flinktraining.examples.datastream_java.basics.utils.ParallelCollectionSource;
-import com.ververica.flinktraining.examples.datastream_java.basics.utils.SinkCollectingLongs;
 import org.junit.ClassRule;
 import org.junit.Test;
 
@@ -30,27 +29,27 @@ import java.util.Arrays;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestableStreamingJobTest {
-	@ClassRule
-	public static MiniClusterWithClientResource flinkCluster =
-			new MiniClusterWithClientResource(
-					new MiniClusterResourceConfiguration.Builder()
-							.setNumberSlotsPerTaskManager(2)
-							.setNumberTaskManagers(1)
-							.build());
+    @ClassRule
+    public static MiniClusterWithClientResource flinkCluster =
+            new MiniClusterWithClientResource(
+                    new MiniClusterResourceConfiguration.Builder()
+                            .setNumberSlotsPerTaskManager(2)
+                            .setNumberTaskManagers(1)
+                            .build());
 
-	@Test
-	public void testCompletePipeline() throws Exception {
+    @Test
+    public void testCompletePipeline() throws Exception {
 
-		// Arrange
-		ParallelSourceFunction<Long> source =
-				new ParallelCollectionSource(Arrays.asList(1L, 10L, -10L));
-		SinkCollectingLongs sink = new SinkCollectingLongs();
-		TestableStreamingJob job = new TestableStreamingJob(source, sink);
+        // Arrange
+        ParallelSourceFunction<Long> source =
+                new ParallelCollectionSource(Arrays.asList(1L, 10L, -10L));
+        SinkCollectingLongs sink = new SinkCollectingLongs();
+        TestableStreamingJob job = new TestableStreamingJob(source, sink);
 
-		// Act
-		job.execute();
+        // Act
+        job.execute();
 
-		// Assert
-		assertThat(sink.result).containsExactlyInAnyOrder(2L, 11L, -9L);
-	}
+        // Assert
+        assertThat(sink.result).containsExactlyInAnyOrder(2L, 11L, -9L);
+    }
 }

@@ -18,41 +18,41 @@ package com.ververica.flinktraining.exercises.datastream_java.datatypes;
 
 public class EnrichedTrade {
 
-	public EnrichedTrade() {}
+    public EnrichedTrade() {
+    }
 
-	public EnrichedTrade(Trade trade, Customer customer) {
-		this.trade = trade;
-		this.customer = customer;
-	}
+    public EnrichedTrade(Trade trade, Customer customer) {
+        this.trade = trade;
+        this.customer = customer;
+    }
 
-	public Trade trade;
-	public Customer customer;
+    public Trade trade;
+    public Customer customer;
 
-	public String toString() {
-		String customerInfo;
+    public String toString() {
+        String customerInfo;
 
-		if (customer == null) {
-			customerInfo = "null";
-		} else {
-			customerInfo = customer.customerInfo;
-		}
+        if (customer == null) {
+            customerInfo = "null";
+        } else {
+            customerInfo = customer.customerInfo;
+        }
 
-		StringBuilder sb = new StringBuilder();
-		sb.append("EnrichedTrade(").append(trade.timestamp).append(") ");
-		sb.append(customerInfo);
-		return sb.toString();
-	}
+        StringBuilder sb = new StringBuilder();
+        sb.append("EnrichedTrade(").append(trade.timestamp).append(") ");
+        sb.append(customerInfo);
+        return sb.toString();
+    }
 
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) {
-			return true;
-		}
-		else if (o != null && getClass() == o.getClass()) {
-			EnrichedTrade that = (EnrichedTrade) o;
-			return (this.trade.equals(that.trade) &&
-					(this.customer == null ? that.customer == null : this.customer.equals(that.customer)));
-		}
-		return false;
-	}
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        } else if (o != null && getClass() == o.getClass()) {
+            EnrichedTrade that = (EnrichedTrade) o;
+            return (this.trade.equals(that.trade) &&
+                    (this.customer == null ? that.customer == null : this.customer.equals(that.customer)));
+        }
+        return false;
+    }
 }

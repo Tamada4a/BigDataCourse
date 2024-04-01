@@ -21,7 +21,8 @@ import com.ververica.flinktraining.exercises.datastream_java.datatypes.TaxiRide;
 import com.ververica.flinktraining.exercises.datastream_java.sources.TaxiFareSource;
 import com.ververica.flinktraining.exercises.datastream_java.sources.TaxiRideSource;
 import com.ververica.flinktraining.exercises.datastream_java.utils.ExerciseBase;
-import com.ververica.flinktraining.exercises.datastream_java.utils.MissingSolutionException;
+import org.apache.flink.api.common.state.ValueState;
+import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.Configuration;
@@ -36,67 +37,109 @@ import org.apache.flink.util.OutputTag;
 /**
  * The "Expiring State" exercise from the Flink training
  * (http://training.ververica.com).
- *
+ * <p>
  * The goal for this exercise is to enrich TaxiRides with fare information.
- *
+ * <p>
  * Parameters:
  * -rides path-to-input-file
  * -fares path-to-input-file
- *
  */
 public class ExpiringStateExercise extends ExerciseBase {
-	static final OutputTag<TaxiRide> unmatchedRides = new OutputTag<TaxiRide>("unmatchedRides") {};
-	static final OutputTag<TaxiFare> unmatchedFares = new OutputTag<TaxiFare>("unmatchedFares") {};
+    static final OutputTag<TaxiRide> unmatchedRides = new OutputTag<TaxiRide>("unmatchedRides") {
+    };
+    static final OutputTag<TaxiFare> unmatchedFares = new OutputTag<TaxiFare>("unmatchedFares") {
+    };
 
-	public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
 
-		ParameterTool params = ParameterTool.fromArgs(args);
-		final String ridesFile = params.get("rides", ExerciseBase.pathToRideData);
-		final String faresFile = params.get("fares", ExerciseBase.pathToFareData);
+        ParameterTool params = ParameterTool.fromArgs(args);
+        final String ridesFile = params.get("rides", ExerciseBase.pathToRideData);
+        final String faresFile = params.get("fares", ExerciseBase.pathToFareData);
 
-		final int maxEventDelay = 60;           // events are out of order by max 60 seconds
-		final int servingSpeedFactor = 600; 	// 10 minutes worth of events are served every second
+        final int maxEventDelay = 60;           // events are out of order by max 60 seconds
+        final int servingSpeedFactor = 600;    // 10 minutes worth of events are served every second
 
-		// set up streaming execution environment
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
-		env.setParallelism(ExerciseBase.parallelism);
+        // set up streaming execution environment
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+        env.setParallelism(ExerciseBase.parallelism);
 
-		DataStream<TaxiRide> rides = env
-				.addSource(rideSourceOrTest(new TaxiRideSource(ridesFile, maxEventDelay, servingSpeedFactor)))
-				.filter((TaxiRide ride) -> (ride.isStart && (ride.rideId % 1000 != 0)))
-				.keyBy(ride -> ride.rideId);
+        DataStream<TaxiRide> rides = env
+                .addSource(rideSourceOrTest(new TaxiRideSource(ridesFile, maxEventDelay, servingSpeedFactor)))
+                .filter((TaxiRide ride) -> (ride.isStart && (ride.rideId % 1000 != 0)))
+                .keyBy(ride -> ride.rideId);
 
-		DataStream<TaxiFare> fares = env
-				.addSource(fareSourceOrTest(new TaxiFareSource(faresFile, maxEventDelay, servingSpeedFactor)))
-				.keyBy(fare -> fare.rideId);
+        DataStream<TaxiFare> fares = env
+                .addSource(fareSourceOrTest(new TaxiFareSource(faresFile, maxEventDelay, servingSpeedFactor)))
+                .keyBy(fare -> fare.rideId);
 
-		SingleOutputStreamOperator processed = rides
-				.connect(fares)
-				.process(new EnrichmentFunction());
+        SingleOutputStreamOperator processed = rides
+                .connect(fares)
+                .process(new EnrichmentFunction());
 
-		printOrTest(processed.getSideOutput(unmatchedFares));
+        printOrTest(processed.getSideOutput(unmatchedFares));
 
-		env.execute("ExpiringStateExercise (java)");
-	}
+        env.execute("ExpiringStateExercise (java)");
+    }
 
-	public static class EnrichmentFunction extends KeyedCoProcessFunction<Long, TaxiRide, TaxiFare, Tuple2<TaxiRide, TaxiFare>> {
+    public static class EnrichmentFunction extends KeyedCoProcessFunction<Long, TaxiRide, TaxiFare, Tuple2<TaxiRide, TaxiFare>> {
 
-		@Override
-		public void open(Configuration config) throws Exception {
-			throw new MissingSolutionException();
-		}
+        private ValueState<TaxiRide> rideState;
+        private ValueState<TaxiFare> fareState;
 
-		@Override
-		public void onTimer(long timestamp, OnTimerContext ctx, Collector<Tuple2<TaxiRide, TaxiFare>> out) throws Exception {
-		}
+        @Override
+        public void open(Configuration config) throws Exception {
+            ValueStateDescriptor<TaxiRide> taxiRideDescriptor =
+                    new ValueStateDescriptor<>("storedTaxiRide", TaxiRide.class);
+            rideState = getRuntimeContext().getState(taxiRideDescriptor);
 
-		@Override
-		public void processElement1(TaxiRide ride, Context context, Collector<Tuple2<TaxiRide, TaxiFare>> out) throws Exception {
-		}
+            ValueStateDescriptor<TaxiFare> taxiFareDescriptor =
+                    new ValueStateDescriptor<>("storedTaxiFare", TaxiFare.class);
+            fareState = getRuntimeContext().getState(taxiFareDescriptor);
+        }
 
-		@Override
-		public void processElement2(TaxiFare fare, Context context, Collector<Tuple2<TaxiRide, TaxiFare>> out) throws Exception {
-		}
-	}
+        @Override
+        public void onTimer(long timestamp, OnTimerContext context, Collector<Tuple2<TaxiRide, TaxiFare>> collector) throws Exception {
+
+            if (rideState.value() != null) {
+                context.output(unmatchedRides, rideState.value());
+                rideState.clear();
+            }
+
+            if (fareState.value() != null) {
+                context.output(unmatchedFares, fareState.value());
+                fareState.clear();
+            }
+        }
+
+        @Override
+        public void processElement1(TaxiRide ride, Context context, Collector<Tuple2<TaxiRide, TaxiFare>> out) throws Exception {
+
+            TaxiFare fare = fareState.value();
+
+            if (fare != null) {
+                fareState.clear();
+                context.timerService().deleteEventTimeTimer(fare.getEventTime());
+                out.collect(new Tuple2(ride, fare));
+            } else {
+                rideState.update(ride);
+                context.timerService().registerEventTimeTimer(ride.getEventTime());
+            }
+        }
+
+        @Override
+        public void processElement2(TaxiFare fare, Context context, Collector<Tuple2<TaxiRide, TaxiFare>> out) throws Exception {
+
+            TaxiRide ride = rideState.value();
+
+            if (ride != null) {
+                rideState.clear();
+                context.timerService().deleteEventTimeTimer(ride.getEventTime());
+                out.collect(new Tuple2(ride, fare));
+            } else {
+                fareState.update(fare);
+                context.timerService().registerEventTimeTimer(fare.getEventTime());
+            }
+        }
+    }
 }

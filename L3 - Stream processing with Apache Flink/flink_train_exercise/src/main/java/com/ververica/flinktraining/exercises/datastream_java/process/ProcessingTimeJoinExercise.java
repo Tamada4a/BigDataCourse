@@ -36,52 +36,52 @@ import org.apache.flink.util.Collector;
  */
 
 public class ProcessingTimeJoinExercise {
-	public static void main(String[] args) throws Exception {
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+    public static void main(String[] args) throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
-		// Simulated trade stream
-		DataStream<Trade> tradeStream = FinSources.tradeSource(env);
+        // Simulated trade stream
+        DataStream<Trade> tradeStream = FinSources.tradeSource(env);
 
-		// Simulated customer stream
-		DataStream<Customer> customerStream = FinSources.customerSource(env);
+        // Simulated customer stream
+        DataStream<Customer> customerStream = FinSources.customerSource(env);
 
-		// Stream of enriched trades
-		DataStream<EnrichedTrade> joinedStream = tradeStream
-				.keyBy(t -> t.customerId)
-				.connect(customerStream.keyBy(c -> c.customerId))
-				.process(new ProcessingTimeJoinFunction());
+        // Stream of enriched trades
+        DataStream<EnrichedTrade> joinedStream = tradeStream
+                .keyBy(t -> t.customerId)
+                .connect(customerStream.keyBy(c -> c.customerId))
+                .process(new ProcessingTimeJoinFunction());
 
-		joinedStream.print();
+        joinedStream.print();
 
-		env.execute("processing-time join");
-	}
+        env.execute("processing-time join");
+    }
 
-	public static class ProcessingTimeJoinFunction extends
-			KeyedCoProcessFunction<Long, Trade, Customer, EnrichedTrade> {
-		// Store latest Customer update
-		private ValueState<Customer> customerState = null;
+    public static class ProcessingTimeJoinFunction extends
+            KeyedCoProcessFunction<Long, Trade, Customer, EnrichedTrade> {
+        // Store latest Customer update
+        private ValueState<Customer> customerState = null;
 
-		@Override
-		public void open(Configuration config) {
-			ValueStateDescriptor<Customer> cDescriptor = new ValueStateDescriptor<>(
-					"customer",
-					TypeInformation.of(Customer.class)
-			);
-			customerState = getRuntimeContext().getState(cDescriptor);
-		}
+        @Override
+        public void open(Configuration config) {
+            ValueStateDescriptor<Customer> cDescriptor = new ValueStateDescriptor<>(
+                    "customer",
+                    TypeInformation.of(Customer.class)
+            );
+            customerState = getRuntimeContext().getState(cDescriptor);
+        }
 
-		@Override
-		public void processElement1(Trade trade,
-									Context context,
-									Collector<EnrichedTrade> out) throws Exception {
-			out.collect(new EnrichedTrade(trade, customerState.value()));
-		}
+        @Override
+        public void processElement1(Trade trade,
+                                    Context context,
+                                    Collector<EnrichedTrade> out) throws Exception {
+            out.collect(new EnrichedTrade(trade, customerState.value()));
+        }
 
-		@Override
-		public void processElement2(Customer customer,
-									Context context,
-									Collector<EnrichedTrade> collector) throws Exception {
-			customerState.update(customer);
-		}
-	}
+        @Override
+        public void processElement2(Customer customer,
+                                    Context context,
+                                    Collector<EnrichedTrade> collector) throws Exception {
+            customerState.update(customer);
+        }
+    }
 }

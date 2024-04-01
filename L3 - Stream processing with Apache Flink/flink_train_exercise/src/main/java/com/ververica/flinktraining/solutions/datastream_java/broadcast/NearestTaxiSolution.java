@@ -38,140 +38,140 @@ import java.util.Random;
 /**
  * Java reference implementation for the "Nearest Future Taxi" exercise of the Flink training
  * (http://training.ververica.com). This solution doesn't worry about leaking state.
- *
+ * <p>
  * Given a location that is broadcast, the goal of this exercise is to watch the stream of
  * taxi rides, and report on the taxis that complete their ride closest to the requested location.
- *
+ * <p>
  * Parameters:
  * -input path-to-input-file
- *
+ * <p>
  * Use
- *
- *     nc -lk 9999
- *
+ * <p>
+ * nc -lk 9999
+ * <p>
  * (or nc -l -p 9999, depending on your version of netcat)
  * to establish a socket stream from stdin on port 9999.
  * On Windows you can use ncat from https://nmap.org/ncat/.
- *
+ * <p>
  * Some good locations:
- *
+ * <p>
  * -74, 41 					(Near, but outside the city to the NNW)
  * -73.7781, 40.6413 		(JFK Airport)
  * -73.977664, 40.761484	(Museum of Modern Art)
  */
 public class NearestTaxiSolution extends ExerciseBase {
 
-	private static class Query {
+    private static class Query {
 
-		private final long queryId;
-		private final float longitude;
-		private final float latitude;
+        private final long queryId;
+        private final float longitude;
+        private final float latitude;
 
-		Query(final float longitude, final float latitude) {
-			this.queryId = new Random().nextLong();
-			this.longitude = longitude;
-			this.latitude = latitude;
-		}
+        Query(final float longitude, final float latitude) {
+            this.queryId = new Random().nextLong();
+            this.longitude = longitude;
+            this.latitude = latitude;
+        }
 
-		Long getQueryId() {
-			return queryId;
-		}
+        Long getQueryId() {
+            return queryId;
+        }
 
-		public float getLongitude() {
-			return longitude;
-		}
+        public float getLongitude() {
+            return longitude;
+        }
 
-		public float getLatitude() {
-			return latitude;
-		}
+        public float getLatitude() {
+            return latitude;
+        }
 
-		@Override
-		public String toString() {
-			return "Query{" +
-					"id=" + queryId +
-					", longitude=" + longitude +
-					", latitude=" + latitude +
-					'}';
-		}
-	}
+        @Override
+        public String toString() {
+            return "Query{" +
+                    "id=" + queryId +
+                    ", longitude=" + longitude +
+                    ", latitude=" + latitude +
+                    '}';
+        }
+    }
 
-	final static MapStateDescriptor queryDescriptor = new MapStateDescriptor<>(
-			"queries",
-			BasicTypeInfo.LONG_TYPE_INFO,
-			TypeInformation.of(Query.class));
+    final static MapStateDescriptor queryDescriptor = new MapStateDescriptor<>(
+            "queries",
+            BasicTypeInfo.LONG_TYPE_INFO,
+            TypeInformation.of(Query.class));
 
-	public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
 
-		ParameterTool params = ParameterTool.fromArgs(args);
-		final String input = params.get("input", ExerciseBase.pathToRideData);
+        ParameterTool params = ParameterTool.fromArgs(args);
+        final String input = params.get("input", ExerciseBase.pathToRideData);
 
-		final int maxEventDelay = 60;       	// events are out of order by at most 60 seconds
-		final int servingSpeedFactor = 600; 	// 10 minutes worth of events are served every second
+        final int maxEventDelay = 60;        // events are out of order by at most 60 seconds
+        final int servingSpeedFactor = 600;    // 10 minutes worth of events are served every second
 
-		// set up streaming execution environment
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
-		env.setParallelism(ExerciseBase.parallelism);
+        // set up streaming execution environment
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+        env.setParallelism(ExerciseBase.parallelism);
 
-		DataStream<TaxiRide> rides = env.addSource(new TaxiRideSource(input, maxEventDelay, servingSpeedFactor));
+        DataStream<TaxiRide> rides = env.addSource(new TaxiRideSource(input, maxEventDelay, servingSpeedFactor));
 
-		// add a socket source
-		BroadcastStream<Query> queryStream = env.socketTextStream("localhost", 9999)
-				.map(new MapFunction<String, Query>() {
-					@Override
-					public Query map(String msg) throws Exception {
-						String[] parts = msg.split(",\\s*");
-						return new Query(
-								Float.valueOf(parts[0]),	// longitude
-								Float.valueOf(parts[1]));	// latitude
-					}
-				})
-				.broadcast(queryDescriptor);
+        // add a socket source
+        BroadcastStream<Query> queryStream = env.socketTextStream("localhost", 9999)
+                .map(new MapFunction<String, Query>() {
+                    @Override
+                    public Query map(String msg) throws Exception {
+                        String[] parts = msg.split(",\\s*");
+                        return new Query(
+                                Float.valueOf(parts[0]),    // longitude
+                                Float.valueOf(parts[1]));    // latitude
+                    }
+                })
+                .broadcast(queryDescriptor);
 
-		DataStream<Tuple3<Long, Long, Float>> reports = rides
-				.keyBy((TaxiRide ride) -> ride.taxiId)
-				.connect(queryStream)
-				.process(new QueryFunction());
+        DataStream<Tuple3<Long, Long, Float>> reports = rides
+                .keyBy((TaxiRide ride) -> ride.taxiId)
+                .connect(queryStream)
+                .process(new QueryFunction());
 
-		DataStream<Tuple3<Long, Long, Float>> nearest = reports
-				// key by the queryId
-				.keyBy(x -> x.f0)
-				// the minimum, for each query, by distance
-				.minBy(2);
+        DataStream<Tuple3<Long, Long, Float>> nearest = reports
+                // key by the queryId
+                .keyBy(x -> x.f0)
+                // the minimum, for each query, by distance
+                .minBy(2);
 
-		nearest.print();
+        nearest.print();
 
-		env.execute("Nearest Available Taxi");
-	}
+        env.execute("Nearest Available Taxi");
+    }
 
-	// Note that in order to have consistent results after a restore from a checkpoint, the
-	// behavior of this method must be deterministic, and NOT depend on characteristics of an
-	// individual sub-task.
-	public static class QueryFunction extends KeyedBroadcastProcessFunction<Long, TaxiRide, Query, Tuple3<Long, Long, Float>> {
+    // Note that in order to have consistent results after a restore from a checkpoint, the
+    // behavior of this method must be deterministic, and NOT depend on characteristics of an
+    // individual sub-task.
+    public static class QueryFunction extends KeyedBroadcastProcessFunction<Long, TaxiRide, Query, Tuple3<Long, Long, Float>> {
 
-		@Override
-		public void processBroadcastElement(Query query, Context ctx, Collector<Tuple3<Long, Long, Float>> out) throws Exception {
-			System.out.println("new query " + query);
-			ctx.getBroadcastState(queryDescriptor).put(query.getQueryId(), query);
-		}
+        @Override
+        public void processBroadcastElement(Query query, Context ctx, Collector<Tuple3<Long, Long, Float>> out) throws Exception {
+            System.out.println("new query " + query);
+            ctx.getBroadcastState(queryDescriptor).put(query.getQueryId(), query);
+        }
 
-		@Override
-		// Output (queryId, taxiId, euclidean distance) for every query, if the taxi ride is now ending.
-		public void processElement(TaxiRide ride, ReadOnlyContext ctx, Collector<Tuple3<Long, Long, Float>> out) throws Exception {
-			if (!ride.isStart) {
-				Iterable<Map.Entry<Long, Query>> entries = ctx.getBroadcastState(queryDescriptor).immutableEntries();
+        @Override
+        // Output (queryId, taxiId, euclidean distance) for every query, if the taxi ride is now ending.
+        public void processElement(TaxiRide ride, ReadOnlyContext ctx, Collector<Tuple3<Long, Long, Float>> out) throws Exception {
+            if (!ride.isStart) {
+                Iterable<Map.Entry<Long, Query>> entries = ctx.getBroadcastState(queryDescriptor).immutableEntries();
 
-				for (Map.Entry<Long, Query> entry: entries) {
-					final Query query = entry.getValue();
-					final float kilometersAway = (float) ride.getEuclideanDistance(query.getLongitude(), query.getLatitude());
+                for (Map.Entry<Long, Query> entry : entries) {
+                    final Query query = entry.getValue();
+                    final float kilometersAway = (float) ride.getEuclideanDistance(query.getLongitude(), query.getLatitude());
 
-					out.collect(new Tuple3<>(
-							query.getQueryId(),
-							ride.taxiId,
-							kilometersAway
-					));
-				}
-			}
-		}
-	}
+                    out.collect(new Tuple3<>(
+                            query.getQueryId(),
+                            ride.taxiId,
+                            kilometersAway
+                    ));
+                }
+            }
+        }
+    }
 }

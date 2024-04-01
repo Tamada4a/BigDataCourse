@@ -21,69 +21,67 @@ import org.apache.commons.math3.stat.regression.SimpleRegression;
 /**
  * TravelTimePredictionModel provides a very simple regression model to predict the travel time
  * to a destination location depending on the direction and distance of the departure location.
- *
+ * <p>
  * The model builds for multiple direction intervals (think of it as north, north-east, east, etc.)
  * a linear regression model (Apache Commons Math, SimpleRegression) to predict the travel time based
  * on the distance.
- *
+ * <p>
  * NOTE: This model is not mean for accurate predictions but rather to illustrate Flink's handling
  * of operator state.
- *
  */
 public class TravelTimePredictionModel {
 
-	private static int NUM_DIRECTION_BUCKETS = 8;
-	private static int BUCKET_ANGLE = 360 / NUM_DIRECTION_BUCKETS;
+    private static int NUM_DIRECTION_BUCKETS = 8;
+    private static int BUCKET_ANGLE = 360 / NUM_DIRECTION_BUCKETS;
 
-	SimpleRegression[] models;
+    SimpleRegression[] models;
 
-	public TravelTimePredictionModel() {
-		models = new SimpleRegression[NUM_DIRECTION_BUCKETS];
-		for (int i = 0; i < NUM_DIRECTION_BUCKETS; i++) {
-			models[i] = new SimpleRegression(false);
-		}
-	}
+    public TravelTimePredictionModel() {
+        models = new SimpleRegression[NUM_DIRECTION_BUCKETS];
+        for (int i = 0; i < NUM_DIRECTION_BUCKETS; i++) {
+            models[i] = new SimpleRegression(false);
+        }
+    }
 
-	/**
-	 * Predicts the time of a taxi to arrive from a certain direction and Euclidean distance.
-	 *
-	 * @param direction The direction from which the taxi arrives.
-	 * @param distance The Euclidean distance that the taxi has to drive.
-	 * @return A prediction of the time that the taxi will be traveling or -1 if no prediction is
-	 *         possible, yet.
-	 */
-	public int predictTravelTime(int direction, double distance) {
-		byte directionBucket = getDirectionBucket(direction);
-		double prediction = models[directionBucket].predict(distance);
+    /**
+     * Predicts the time of a taxi to arrive from a certain direction and Euclidean distance.
+     *
+     * @param direction The direction from which the taxi arrives.
+     * @param distance  The Euclidean distance that the taxi has to drive.
+     * @return A prediction of the time that the taxi will be traveling or -1 if no prediction is
+     * possible, yet.
+     */
+    public int predictTravelTime(int direction, double distance) {
+        byte directionBucket = getDirectionBucket(direction);
+        double prediction = models[directionBucket].predict(distance);
 
-		if (Double.isNaN(prediction)) {
-			return -1;
-		}
-		else {
-			return (int)prediction;
-		}
-	}
+        if (Double.isNaN(prediction)) {
+            return -1;
+        } else {
+            return (int) prediction;
+        }
+    }
 
-	/**
-	 * Refines the travel time prediction model by adding a data point.
-	 *
-	 * @param direction The direction from which the taxi arrived.
-	 * @param distance The Euclidean distance that the taxi traveled.
-	 * @param travelTime The actual travel time of the taxi.
-	 */
-	public void refineModel(int direction, double distance, double travelTime) {
-		byte directionBucket = getDirectionBucket(direction);
-		models[directionBucket].addData(distance, travelTime);
-	}
+    /**
+     * Refines the travel time prediction model by adding a data point.
+     *
+     * @param direction  The direction from which the taxi arrived.
+     * @param distance   The Euclidean distance that the taxi traveled.
+     * @param travelTime The actual travel time of the taxi.
+     */
+    public void refineModel(int direction, double distance, double travelTime) {
+        byte directionBucket = getDirectionBucket(direction);
+        models[directionBucket].addData(distance, travelTime);
+    }
 
-	/**
-	 * Converts a direction angle (degrees) into a bucket number.
-	 *
-	 * @param direction An angle in degrees.
-	 * @return A direction bucket number.
-	 */
-	private byte getDirectionBucket(int direction) {
-		return (byte)(direction / BUCKET_ANGLE);
-	}
+    /**
+     * Converts a direction angle (degrees) into a bucket number.
+     *
+     * @param direction An angle in degrees.
+     * @return A direction bucket number.
+     */
+    private byte getDirectionBucket(int direction) {
+        return (byte) (direction / BUCKET_ANGLE);
+    }
 
 }

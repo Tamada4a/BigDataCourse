@@ -50,121 +50,122 @@ import java.util.Random;
 */
 
 public class WhyLate {
-	public final static int PARTITIONS_PER_INSTANCE = 3;
+    public final static int PARTITIONS_PER_INSTANCE = 3;
 
-	public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
 
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
-		OutputTag<Event> lateDataTag = new OutputTag<Event>("late"){};
+        OutputTag<Event> lateDataTag = new OutputTag<Event>("late") {
+        };
 
-		// When PARTITIONS_PER_INSTANCE is greater than 1, there can be late events.
-		DataStream<Event> events = env.addSource(new ParallelEventSource(PARTITIONS_PER_INSTANCE));
+        // When PARTITIONS_PER_INSTANCE is greater than 1, there can be late events.
+        DataStream<Event> events = env.addSource(new ParallelEventSource(PARTITIONS_PER_INSTANCE));
 
-		// Count the number of events per user in one second event-time windows,
-		// and capture late events on a side output.
-		SingleOutputStreamOperator<Tuple2<String, Integer>> windowOperator = events
-				.assignTimestampsAndWatermarks(new TimestampsAndWatermarks())
-				.keyBy(e -> e.userId)
-				.window(TumblingEventTimeWindows.of(Time.seconds(1)))
-				.sideOutputLateData(lateDataTag)
-				.process(new CountEventsPerUser());
+        // Count the number of events per user in one second event-time windows,
+        // and capture late events on a side output.
+        SingleOutputStreamOperator<Tuple2<String, Integer>> windowOperator = events
+                .assignTimestampsAndWatermarks(new TimestampsAndWatermarks())
+                .keyBy(e -> e.userId)
+                .window(TumblingEventTimeWindows.of(Time.seconds(1)))
+                .sideOutputLateData(lateDataTag)
+                .process(new CountEventsPerUser());
 
-		windowOperator.print();
+        windowOperator.print();
 
-		// Count the number of late events for every second of processing time.pri
-		windowOperator.getSideOutput(lateDataTag)
-				.windowAll(TumblingProcessingTimeWindows.of(Time.seconds(1)))
-				.process(new CountLateEvents())
-				.map(i -> new Tuple3<String, Integer, String>("LATE", i, Instant.now().toString()))
-				.returns(Types.TUPLE(Types.STRING, Types.INT, Types.STRING))
-				.print();
+        // Count the number of late events for every second of processing time.pri
+        windowOperator.getSideOutput(lateDataTag)
+                .windowAll(TumblingProcessingTimeWindows.of(Time.seconds(1)))
+                .process(new CountLateEvents())
+                .map(i -> new Tuple3<String, Integer, String>("LATE", i, Instant.now().toString()))
+                .returns(Types.TUPLE(Types.STRING, Types.INT, Types.STRING))
+                .print();
 
-		env.execute();
-	}
+        env.execute();
+    }
 
-	private static class Event {
-		public final long timestamp;
-		public final String userId;
-		public final long partition;
+    private static class Event {
+        public final long timestamp;
+        public final String userId;
+        public final long partition;
 
-		Event(long partition) {
-			this.timestamp = Instant.now().toEpochMilli() + (100 * partition);
-			this.userId = "U" + new Random().nextInt(6);
-			this.partition = partition;
-		}
+        Event(long partition) {
+            this.timestamp = Instant.now().toEpochMilli() + (100 * partition);
+            this.userId = "U" + new Random().nextInt(6);
+            this.partition = partition;
+        }
 
-		@Override
-		public String toString() {
-			return "Event{" + "userId=" + userId + ", partition=" + partition + ", @" + timestamp + '}';
-		}
-	}
+        @Override
+        public String toString() {
+            return "Event{" + "userId=" + userId + ", partition=" + partition + ", @" + timestamp + '}';
+        }
+    }
 
-	private static class ParallelEventSource extends RichParallelSourceFunction<Event> {
-		private volatile boolean running = true;
-		private transient long instance;
-		private final int partitionsPerInstance;
+    private static class ParallelEventSource extends RichParallelSourceFunction<Event> {
+        private volatile boolean running = true;
+        private transient long instance;
+        private final int partitionsPerInstance;
 
-		public ParallelEventSource(int partitionsPerInstance) {
-			this.partitionsPerInstance = partitionsPerInstance;
-		}
+        public ParallelEventSource(int partitionsPerInstance) {
+            this.partitionsPerInstance = partitionsPerInstance;
+        }
 
-		@Override
-		public void open(Configuration parameters) throws Exception {
-			instance = getRuntimeContext().getIndexOfThisSubtask();
-		}
+        @Override
+        public void open(Configuration parameters) throws Exception {
+            instance = getRuntimeContext().getIndexOfThisSubtask();
+        }
 
-		@Override
-		public void run(SourceContext<Event> ctx) throws Exception {
-			while(running) {
-				for (int i = 0; i < partitionsPerInstance; i++) {
-					ctx.collect(new Event(partitionsPerInstance * instance + i));
-				}
-			}
-		}
+        @Override
+        public void run(SourceContext<Event> ctx) throws Exception {
+            while (running) {
+                for (int i = 0; i < partitionsPerInstance; i++) {
+                    ctx.collect(new Event(partitionsPerInstance * instance + i));
+                }
+            }
+        }
 
-		@Override
-		public void cancel() {
-			running = false;
-		}
-	}
+        @Override
+        public void cancel() {
+            running = false;
+        }
+    }
 
-	private static class TimestampsAndWatermarks extends AscendingTimestampExtractor<Event> {
-		@Override
-		public long extractAscendingTimestamp(Event event) {
-			return event.timestamp;
-		}
-	}
+    private static class TimestampsAndWatermarks extends AscendingTimestampExtractor<Event> {
+        @Override
+        public long extractAscendingTimestamp(Event event) {
+            return event.timestamp;
+        }
+    }
 
-	private static class CountEventsPerUser extends ProcessWindowFunction<Event, Tuple2<String, Integer>, String, TimeWindow> {
-		@Override
-		public void process(
-				String key,
-				Context context,
-				Iterable<Event> events,
-				Collector<Tuple2<String, Integer>> out) throws Exception {
+    private static class CountEventsPerUser extends ProcessWindowFunction<Event, Tuple2<String, Integer>, String, TimeWindow> {
+        @Override
+        public void process(
+                String key,
+                Context context,
+                Iterable<Event> events,
+                Collector<Tuple2<String, Integer>> out) throws Exception {
 
-			int counter = 0;
-			for (Object i : events) {
-				counter++;
-			}
-			out.collect(new Tuple2<>(key, counter));
-		}
-	}
+            int counter = 0;
+            for (Object i : events) {
+                counter++;
+            }
+            out.collect(new Tuple2<>(key, counter));
+        }
+    }
 
-	private static class CountLateEvents extends ProcessAllWindowFunction<Event, Integer, TimeWindow> {
-		@Override
-		public void process(
-				Context context,
-				Iterable<Event> events,
-				Collector<Integer> out) throws Exception {
+    private static class CountLateEvents extends ProcessAllWindowFunction<Event, Integer, TimeWindow> {
+        @Override
+        public void process(
+                Context context,
+                Iterable<Event> events,
+                Collector<Integer> out) throws Exception {
 
-			int counter = 0;
-			for (Object i : events) {
-				counter++;
-			}
-			out.collect(counter);
-		}
-	}
+            int counter = 0;
+            for (Object i : events) {
+                counter++;
+            }
+            out.collect(counter);
+        }
+    }
 }

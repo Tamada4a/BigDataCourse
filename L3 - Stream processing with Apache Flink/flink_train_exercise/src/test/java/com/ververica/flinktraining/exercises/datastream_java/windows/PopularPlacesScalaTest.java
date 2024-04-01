@@ -24,18 +24,18 @@ import java.util.List;
 
 public class PopularPlacesScalaTest extends PopularPlacesTest {
 
-	static Testable scalaExercise = () -> PopularPlacesExercise.main(new String[]{"-threshold", "2"});
+    static Testable scalaExercise = () -> PopularPlacesExercise.main(new String[]{"-threshold", "2"});
 
-	protected List<Tuple5<Float, Float, Long, Boolean, Integer>> results(TestRideSource source) throws Exception {
-		Testable scalaSolution = () -> PopularPlacesSolution.main(new String[]{"-threshold", "2"});
-		List<?> tuples = runApp(source, new TestSink<>(), scalaExercise, scalaSolution);
-		return javaTuples((ArrayList<scala.Tuple5<Float, Float, Long, Boolean, Integer>>) tuples);
-	}
+    protected List<Tuple5<Float, Float, Long, Boolean, Integer>> results(TestRideSource source) throws Exception {
+        Testable scalaSolution = () -> PopularPlacesSolution.main(new String[]{"-threshold", "2"});
+        List<?> tuples = runApp(source, new TestSink<>(), scalaExercise, scalaSolution);
+        return javaTuples((ArrayList<scala.Tuple5<Float, Float, Long, Boolean, Integer>>) tuples);
+    }
 
-	private ArrayList<Tuple5<Float, Float, Long, Boolean, Integer>> javaTuples(ArrayList<scala.Tuple5<Float, Float, Long, Boolean, Integer>> a) {
-		ArrayList<Tuple5<Float, Float, Long, Boolean, Integer>> javaCopy = new ArrayList<>(a.size());
-		a.iterator().forEachRemaining(t -> javaCopy.add(new Tuple5(t._1(), t._2(), t._3(), t._4(), t._5())));
-		return javaCopy;
-	}
+    private ArrayList<Tuple5<Float, Float, Long, Boolean, Integer>> javaTuples(ArrayList<scala.Tuple5<Float, Float, Long, Boolean, Integer>> a) {
+        ArrayList<Tuple5<Float, Float, Long, Boolean, Integer>> javaCopy = new ArrayList<>(a.size());
+        a.iterator().forEachRemaining(t -> javaCopy.add(new Tuple5(t._1(), t._2(), t._3(), t._4(), t._5())));
+        return javaCopy;
+    }
 
 }

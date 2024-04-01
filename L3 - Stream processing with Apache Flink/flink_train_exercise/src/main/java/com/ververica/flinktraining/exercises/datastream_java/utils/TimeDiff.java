@@ -24,12 +24,12 @@ import java.sql.Timestamp;
 
 public class TimeDiff extends ScalarFunction {
 
-	public long eval(Timestamp first, Timestamp second) {
-		return java.time.Duration.between(first.toInstant(), second.toInstant()).toMillis();
-	}
+    public long eval(Timestamp first, Timestamp second) {
+        return java.time.Duration.between(first.toInstant(), second.toInstant()).toMillis();
+    }
 
-	@Override
-	public TypeInformation<?> getResultType(Class<?>[] signature) {
-		return Types.LONG();
-	}
+    @Override
+    public TypeInformation<?> getResultType(Class<?>[] signature) {
+        return Types.LONG();
+    }
 }

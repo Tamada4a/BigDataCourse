@@ -25,18 +25,18 @@ import java.util.List;
 
 public class HourlyTipsScalaTest extends HourlyTipsTest {
 
-	static Testable scalaExercise = () -> HourlyTipsExercise.main(new String[]{});
+    static Testable scalaExercise = () -> HourlyTipsExercise.main(new String[]{});
 
-	protected List<Tuple3<Long, Long, Float>> results(TestFareSource source) throws Exception {
-		Testable scalaSolution = () -> HourlyTipsSolution.main(new String[]{});
-		List<?> tuples = runApp(source, new TestSink<>(), scalaExercise, scalaSolution);
-		return javaTuples((ArrayList<scala.Tuple3<Long, Long, Float>>) tuples);
-	}
+    protected List<Tuple3<Long, Long, Float>> results(TestFareSource source) throws Exception {
+        Testable scalaSolution = () -> HourlyTipsSolution.main(new String[]{});
+        List<?> tuples = runApp(source, new TestSink<>(), scalaExercise, scalaSolution);
+        return javaTuples((ArrayList<scala.Tuple3<Long, Long, Float>>) tuples);
+    }
 
-	private ArrayList<Tuple3<Long, Long, Float>> javaTuples(ArrayList<scala.Tuple3<Long, Long, Float>> a) {
-		ArrayList<Tuple3<Long, Long, Float>> javaCopy = new ArrayList<>(a.size());
-		a.iterator().forEachRemaining(t -> javaCopy.add(new Tuple3(t._1(), t._2(), t._3())));
-		return javaCopy;
-	}
+    private ArrayList<Tuple3<Long, Long, Float>> javaTuples(ArrayList<scala.Tuple3<Long, Long, Float>> a) {
+        ArrayList<Tuple3<Long, Long, Float>> javaCopy = new ArrayList<>(a.size());
+        a.iterator().forEachRemaining(t -> javaCopy.add(new Tuple3(t._1(), t._2(), t._3())));
+        return javaCopy;
+    }
 
 }

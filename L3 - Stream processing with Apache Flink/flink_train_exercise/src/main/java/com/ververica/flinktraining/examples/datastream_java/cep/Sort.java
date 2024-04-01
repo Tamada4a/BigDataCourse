@@ -47,87 +47,88 @@ import java.util.Random;
 
 public class Sort {
 
-	public static final int OUT_OF_ORDERNESS = 1000;
+    public static final int OUT_OF_ORDERNESS = 1000;
 
-	public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
 
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
-		env.setParallelism(1);
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+        env.setParallelism(1);
 
-		DataStream<Event> eventStream = env.addSource(new OutOfOrderEventSource())
-				.assignTimestampsAndWatermarks(new TimestampsAndWatermarks());
+        DataStream<Event> eventStream = env.addSource(new OutOfOrderEventSource())
+                .assignTimestampsAndWatermarks(new TimestampsAndWatermarks());
 
-		Pattern<Event, ?> matchEverything =
-				Pattern.<Event>begin("any")
-						.where(new SimpleCondition<Event>() {
-							@Override
-							public boolean filter(Event event) throws Exception {
-								return true;
-							}
-						});
+        Pattern<Event, ?> matchEverything =
+                Pattern.<Event>begin("any")
+                        .where(new SimpleCondition<Event>() {
+                            @Override
+                            public boolean filter(Event event) throws Exception {
+                                return true;
+                            }
+                        });
 
-		PatternStream<Event> patternStream = CEP.pattern(eventStream, matchEverything);
-		OutputTag<Event> lateDataOutputTag = new OutputTag<Event>("late-events"){};
+        PatternStream<Event> patternStream = CEP.pattern(eventStream, matchEverything);
+        OutputTag<Event> lateDataOutputTag = new OutputTag<Event>("late-events") {
+        };
 
-		SingleOutputStreamOperator<Event> sorted = patternStream
-				.sideOutputLateData(lateDataOutputTag)
-				.select(new PatternSelectFunction<Event, Event>() {
-					@Override
-					public Event select(Map<String, List<Event>> map) throws Exception {
-						return map.get("any").get(0);
-					}
-				});
+        SingleOutputStreamOperator<Event> sorted = patternStream
+                .sideOutputLateData(lateDataOutputTag)
+                .select(new PatternSelectFunction<Event, Event>() {
+                    @Override
+                    public Event select(Map<String, List<Event>> map) throws Exception {
+                        return map.get("any").get(0);
+                    }
+                });
 
-		sorted.print();
-		sorted
-				.getSideOutput(lateDataOutputTag)
-				.map(e -> new Tuple2<>(e, "LATE"))
-				.returns(Types.TUPLE(TypeInformation.of(Event.class), Types.STRING))
-				.print();
+        sorted.print();
+        sorted
+                .getSideOutput(lateDataOutputTag)
+                .map(e -> new Tuple2<>(e, "LATE"))
+                .returns(Types.TUPLE(TypeInformation.of(Event.class), Types.STRING))
+                .print();
 
-		env.execute();
-	}
+        env.execute();
+    }
 
-	public static class Event {
-		public Long ts;
+    public static class Event {
+        public Long ts;
 
-		Event() {
-			this.ts = Instant.now().toEpochMilli() + (new Random().nextInt(OUT_OF_ORDERNESS));
-		}
+        Event() {
+            this.ts = Instant.now().toEpochMilli() + (new Random().nextInt(OUT_OF_ORDERNESS));
+        }
 
-		@Override
-		public String toString() {
-			return "Event@ " + ts;
-		}
-	}
+        @Override
+        public String toString() {
+            return "Event@ " + ts;
+        }
+    }
 
-	private static class OutOfOrderEventSource implements SourceFunction<Event> {
-		private volatile boolean running = true;
+    private static class OutOfOrderEventSource implements SourceFunction<Event> {
+        private volatile boolean running = true;
 
-		@Override
-		public void run(SourceContext<Event> ctx) throws Exception {
-			while(running) {
-				ctx.collect(new Event());
-				Thread.sleep(1);
-			}
-		}
+        @Override
+        public void run(SourceContext<Event> ctx) throws Exception {
+            while (running) {
+                ctx.collect(new Event());
+                Thread.sleep(1);
+            }
+        }
 
-		@Override
-		public void cancel() {
-			running = false;
-		}
-	}
+        @Override
+        public void cancel() {
+            running = false;
+        }
+    }
 
-	private static class TimestampsAndWatermarks extends BoundedOutOfOrdernessTimestampExtractor<Event> {
-		public TimestampsAndWatermarks() {
-			super(Time.milliseconds(OUT_OF_ORDERNESS / 2));
-		}
+    private static class TimestampsAndWatermarks extends BoundedOutOfOrdernessTimestampExtractor<Event> {
+        public TimestampsAndWatermarks() {
+            super(Time.milliseconds(OUT_OF_ORDERNESS / 2));
+        }
 
-		@Override
-		public long extractTimestamp(Event event) {
-			return event.ts;
-		}
-	}
+        @Override
+        public long extractTimestamp(Event event) {
+            return event.ts;
+        }
+    }
 }
 
